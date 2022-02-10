@@ -1,8 +1,8 @@
 import React from 'react'
 import Input from '../Input/Input'
 import PropTypes from 'prop-types'
-import './Form.css'
 import Select from '../Select/Select'
+import './Form.css'
 
 export const formatPhoneNumber = ( number, previousNumber ) => {
   let newNumber = number
@@ -32,23 +32,29 @@ export const formatPhoneNumber = ( number, previousNumber ) => {
   if ( deleteParens ) {
     newNumber = digits
   }
-  return newNumber
+  return {
+    result: newNumber,
+    valid: newNumber !== previousNumber || (number === newNumber && newNumber === '' && previousNumber === '' )
+  }
 }
 
-const formatZipcode = (zipcode) => {
+const formatZipcode = (zipcode, previousZipcode) => {
   let newZipcode = zipcode
   if (typeof zipcode !== 'string') newZipcode = newZipcode.toString()
-  newZipcode = newZipcode.replace(/\D/g, '')
-  if (newZipcode.length > 5) newZipcode = newZipcode.slice(0, 5)
-  return newZipcode
+  let digits = newZipcode.replace(/\D/g, '')
+  newZipcode = digits.slice(0, Math.min(digits.length, 5))
+  return {
+    result: newZipcode,
+    valid: newZipcode !== previousZipcode || (zipcode === newZipcode && newZipcode === '' && previousZipcode === '')
+  }
 }
 
 const Form = ({title, description, ...props}) => {
   const handleSubmit = ( e ) => {
     e.preventDefault()
-    if (e.currentTarget.checkValidity()) {
+    if (e.target.checkValidity()) {
       const data = {}
-      const elements = e.currentTarget.querySelectorAll('input, select')
+      const elements = e.target.querySelectorAll('input, select')
       for (const element of elements) {
         if (element?.type === 'checkbox') data[element.name] = element?.value ? element.value : element.checked
         else if (element?.type !== 'submit' || element instanceof HTMLSelectElement) data[element.name] = element.value
@@ -70,8 +76,8 @@ const Form = ({title, description, ...props}) => {
           type='text'
           pattern='^[a-zA-Z]*$'
           defaultValue=''
-          errorMessage={ 'Your first name should consist of English alphabet characters' }
-          placeholder={ 'Enter your first name' }
+          patternMismatchMessage='Your first name should consist of English alphabet characters'
+          placeholder='Enter your first name'
           required
         />
         <Input 
@@ -81,8 +87,8 @@ const Form = ({title, description, ...props}) => {
           type='text'
           pattern='^[a-zA-Z]*$'
           defaultValue=''
-          errorMessage={ 'Your last name should consist of English alphabet characters' }
-          placeholder={ 'Enter your last name' }
+          patternMismatchMessage='Your last name should consist of English alphabet characters'
+          placeholder='Enter your last name'
           required
         />
         <Input 
@@ -92,7 +98,7 @@ const Form = ({title, description, ...props}) => {
           type='date'
           pattern='^\d{0,4}-?(\d{0,2}-?){0,2}$'
           defaultValue=''
-          errorMessage='Your date of birth should consist of a 2 digit month, a 2 digit day, and a 4 digit year'
+          patternMismatchMessage='Your date of birth should consist of a 2 digit month, followed by a 2 digit day, and a 4 digit year'
           required
         />
       </fieldset>
@@ -107,7 +113,7 @@ const Form = ({title, description, ...props}) => {
           defaultValue=''
           formatter={ formatPhoneNumber }
           placeholder='Enter your phone number'
-          errorMessage='Your phone number should have ten digits'
+          patternMismatchMessage='Your phone number should be a ten-digit number'
         />
         <Input 
           id="email-address"
@@ -116,25 +122,25 @@ const Form = ({title, description, ...props}) => {
           type="email" 
           placeholder='Enter your email address'
           defaultValue=''
-          errorMessage='Your email should match the following format: user@example.com'
+          patternMismatchMessage='Your email should resemble following format: user@example.com'
         />
         <Input 
           id="zipcode"
           name='zipcode'
           label='Zipcode'
           type="tel" 
-          pattern='\d{5}'
+          pattern='^\d{5}$'
+          formatter={formatZipcode}
           defaultValue=''
           placeholder='Enter your zipcode'
-          formatter={ formatZipcode }
-          errorMessage='Your zipcode should be a five-digit number'
+          patternMismatchMessage='Your zipcode should be a five-digit number'
         />
         <Select 
           id="preferred-language" 
           name='preffered-language' 
           label='Preferred language' 
           defaultValue='English' 
-          errorMessage='What on earth went wrong?'
+          patternMismatchMessage='What on earth went wrong here?'
         >
           <option value="English">English</option>
           <option value="French">French</option>
@@ -149,7 +155,6 @@ const Form = ({title, description, ...props}) => {
           label='I agree'
           type="checkbox" 
           defaultValue={ false }
-          errorMessage='You must accept the agreement to submit this form'
           required
         />
       </fieldset>
