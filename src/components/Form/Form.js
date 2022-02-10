@@ -1,12 +1,13 @@
-import React, { useState } from 'react'
+import React from 'react'
+import Input from '../Input/Input'
+import PropTypes from 'prop-types'
 import './Form.css'
+import Select from '../Select/Select'
 
 export const formatPhoneNumber = ( number, previousNumber ) => {
   let newNumber = number
   let deleteParens = false
-  if ( typeof newNumber !== 'string' ) {
-    newNumber = newNumber.toString()
-  }
+  if ( typeof newNumber !== 'string' ) newNumber = newNumber.toString()
   let digits = newNumber.replace( /\D/g, '' )
   if ( newNumber.length < previousNumber.length && digits.length < 4 ) {
     deleteParens = true
@@ -34,120 +35,138 @@ export const formatPhoneNumber = ( number, previousNumber ) => {
   return newNumber
 }
 
-const Form = () => {
-  const [ reset, setReset ] = useState( false )
-  const [ firstName, setFirstName ] = useState( '' )
-  const [ lastName, setLastName ] = useState( '' )
-  const [ dateOfBirth, setDateOfBirth ] = useState( '' )
-  const [ phoneNumber, setPhoneNumber ] = useState( '' )
-  const [ emailAddress, setEmailAddress ] = useState( '' )
-  const [ zipcode, setZipcode ] = useState( '' )
-  const [ preferredLanguage, setPreferredLanguage ] = useState( 'English' )
-  const [ agreementChecked, setAgreementChecked ] = useState( false )
+const formatZipcode = (zipcode) => {
+  let newZipcode = zipcode
+  if (typeof zipcode !== 'string') newZipcode = newZipcode.toString()
+  newZipcode = newZipcode.replace(/\D/g, '')
+  if (newZipcode.length > 5) newZipcode = newZipcode.slice(0, 5)
+  return newZipcode
+}
 
-  const values = { firstName, lastName, dateOfBirth, phoneNumber, emailAddress, zipcode, preferredLanguage, agreementChecked }
-
+const Form = ({title, description, ...props}) => {
   const handleSubmit = ( e ) => {
     e.preventDefault()
-    console.log( values )
-  }
-
-  const handleReset = () => {
-    setFirstName( '' )
-    setLastName( '' )
-    setDateOfBirth( '' )
-    setPhoneNumber( '' )
-    setEmailAddress( '' )
-    setZipcode( '' )
-    setPreferredLanguage( 'English' )
-    setAgreementChecked( false )
-    setReset(false)
-  }
-
-  const onChangePhoneNumber = ( e ) => {
-    setPhoneNumber( formatPhoneNumber( e.target.value, phoneNumber ) )
+    if (e.currentTarget.checkValidity()) {
+      const data = {}
+      const elements = e.currentTarget.querySelectorAll('input, select')
+      for (const element of elements) {
+        if (element?.type === 'checkbox') data[element.name] = element?.value ? element.value : element.checked
+        else if (element?.type !== 'submit' || element instanceof HTMLSelectElement) data[element.name] = element.value
+      }
+      console.log('submission', data)
+    } else console.log('invalid')
   }
 
   return (
-    <form onSubmit={ handleSubmit } onReset={ () => setReset( true ) }>
+    <form onSubmit={ handleSubmit } noValidate {...props}>
+      {title && <h3 className='form-title'>{title}</h3>}
+      {description && <h4 className='form-info'>{description}</h4>}
       <fieldset>
-        Your personal details
-        <label htmlFor="first-name">
-          First Name (Required)
-        </label>
-        <input id="first-name" type="text" required value={ firstName } onChange={ ( e ) => setFirstName( e.target.value ) } />
-        <label htmlFor="last-name">
-          * Last Name
-        </label>
-        <input id="last-name" type="text" required value={ lastName } onChange={ ( e ) => setLastName( e.target.value ) } />
-        <label htmlFor="date-of-birth">
-          Date of Birth
-        </label>
-        <input id="date-of-birth" type="date" required value={ dateOfBirth } onChange={ ( e ) => setDateOfBirth( e.target.value ) } />
-      </fieldset>
-      <br />
-      <fieldset>
-        Your contact info
-        <label htmlFor="phone-number">
-          Phone Number *
-        </label>
-        <input id="phone-number" type="tel" onChange={ onChangePhoneNumber } value={ phoneNumber } />
-        <label htmlFor="email-address">
-          Email address
-        </label>
-        <input id="email-address" type="email" value={ emailAddress } onChange={ ( e ) => setEmailAddress( e.target.value ) } />
-        <label htmlFor="zipcode">
-          Zipcode
-        </label>
-        <input
-          id="zipcode"
-          type="text"
-          pattern='\d{5}'
-          title='Your zipcode should be a five-digit number'
-          aria-describedby='zipcode-help'
-          value={ zipcode }
-          onChange={ ( e ) => setZipcode( e.target.value.toString() ) }
+        <legend>Your personal details</legend>
+        <Input 
+          id="first-name"
+          name='first-name'
+          label='First name'
+          type='text'
+          pattern='^[a-zA-Z]*$'
+          defaultValue=''
+          errorMessage={ 'Your first name should consist of English alphabet characters' }
+          placeholder={ 'Enter your first name' }
+          required
         />
-        <p id='zipcode-help'>Your zipcode should be a five-digit number.</p>
-        <label htmlFor="preferred-language">
-          Preferred Language
-        </label>
-        <select id="preferred-language" value={ preferredLanguage } onChange={ ( e ) => setPreferredLanguage( e.target.value ) }>
+        <Input 
+          id="last-name"
+          name='last-name'
+          label='Last name'
+          type='text'
+          pattern='^[a-zA-Z]*$'
+          defaultValue=''
+          errorMessage={ 'Your last name should consist of English alphabet characters' }
+          placeholder={ 'Enter your last name' }
+          required
+        />
+        <Input 
+          id="date-of-birth"
+          name='date-of-birth'
+          label='Date of birth'
+          type='date'
+          pattern='^\d{0,4}-?(\d{0,2}-?){0,2}$'
+          defaultValue=''
+          errorMessage='Your date of birth should consist of a 2 digit month, a 2 digit day, and a 4 digit year'
+          required
+        />
+      </fieldset>
+      <fieldset>
+        <legend>Your contact info</legend>
+        <Input 
+          id="phone-number"
+          name='phone-number'
+          label='Phone number'
+          type="tel" 
+          pattern='^\(\d{3}\) \d{3}-\d{4}$'
+          defaultValue=''
+          formatter={ formatPhoneNumber }
+          placeholder='Enter your phone number'
+          errorMessage='Your phone number should have ten digits'
+        />
+        <Input 
+          id="email-address"
+          name='email-address'
+          label='Email address'
+          type="email" 
+          placeholder='Enter your email address'
+          defaultValue=''
+          errorMessage='Your email should match the following format: user@example.com'
+        />
+        <Input 
+          id="zipcode"
+          name='zipcode'
+          label='Zipcode'
+          type="tel" 
+          pattern='\d{5}'
+          defaultValue=''
+          placeholder='Enter your zipcode'
+          formatter={ formatZipcode }
+          errorMessage='Your zipcode should be a five-digit number'
+        />
+        <Select 
+          id="preferred-language" 
+          name='preffered-language' 
+          label='Preferred language' 
+          defaultValue='English' 
+          errorMessage='What on earth went wrong?'
+        >
           <option value="English">English</option>
           <option value="French">French</option>
           <option value="German">German</option>
-        </select>
+        </Select>
       </fieldset>
-      <br />
-      <fieldset>Agreement
-        <label htmlFor="agreement">
-          I agree
-        </label>
-        <input id="agreement"
-          type="checkbox"
-          aria-describedby='agreement-help'
+      <fieldset>
+        <legend>Agreement</legend>
+        <Input 
+          id="agreement"
+          name='agreement'
+          label='I agree'
+          type="checkbox" 
+          defaultValue={ false }
+          errorMessage='You must accept the agreement to submit this form'
           required
-          checked={ agreementChecked }
-          onChange={ () => setAgreementChecked( prev => !prev ) }
         />
-        <p id='agreement-help'>You must accept the agreement to submit this form.</p>
       </fieldset>
-      <br />
-      <span>
-        { reset ? (
-          <>
-            <input type='button' value='Cancel form reset' autoFocus onClick={ () => setReset( false ) }  key='cancelreset' />
-            <input type='button' value='Confirm form reset' onClick={ handleReset } key='confirmreset' />
-          </>
-        ) : (
-          <>
-            <input id="submit" type="submit" key='submit' aria-label='Submit your form' />
-            <input id='reset' type='reset' key='reset' aria-label='Reset your form' />
-          </>
-        ) }
-      </span>
+      <div>
+        <input id="submit" type="submit" aria-label='Submit your form' />
+      </div>
     </form>
   )
+}
+
+Form.propTypes = {
+  title: PropTypes.string,
+  description: PropTypes.string
+}
+
+Form.defaultProps = {
+  title: 'Form'
 }
 
 export default Form
