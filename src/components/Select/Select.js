@@ -2,39 +2,59 @@ import React, { useState } from 'react'
 import PropTypes from 'prop-types'
 import './Select.css'
 
-const Select = ({id, className, name, label, defaultValue, errorMessage, required, announce, children, ...props}) => {
-  const [ value, setValue ] = useState(defaultValue)
-  const [ message, setMessage ] = useState(errorMessage ? `Error: ${errorMessage}` : '')
-  const [ errorHidden, setErrorHidden ] = useState(true)
-  const [ errorKey, setErrorKey ] = useState(`${id}-error-key`)
+const Select = ({id, className, name, label, defaultValue, pattern, formatter, patternMismatchMessage, required, announce, children, ...props}) => {
   const labelId = `${id}-label`
   const errorId = `${id}-error`
-
-  const handleChange = ( e ) => {
-    setValue(e.target.value)
-  }
-
+  const role = announce === 'immediate' ? 'alert' : 'status'
+  const errorPrefix = `Error on ${label}: `
+  const [ value, setValue ] = useState(defaultValue)
+  const [ errorMessage, setErrorMessage ] = useState('')
+  const [ errorHidden, setErrorHidden ] = useState(true)
+  const [ errorKey, setErrorKey ] = useState(`${id}-error-key`)
+  
   const validateInput = (e) => {
-    const { validity, willValidate, validationMessage } = e.currentTarget
+    const { validity, willValidate, validationMessage } = e.target
     if (willValidate && !validity?.valid) {
-      if (!errorMessage) setMessage(validationMessage)
+      if (patternMismatchMessage && validity.patternMismatch) setErrorMessage(`${patternMismatchMessage}`)
       else {
-        setMessage(`Error: ${errorMessage}`)
-        // e.currentTarget.setCustomValidity(errorMessage)
+        setErrorMessage(`${validationMessage}`)
       }
       setErrorHidden(false)
       setErrorKey(`${id}-error-key-${Math.random()}`)
     } else {
-      // e.currentTarget.setCustomValidity('')
       setErrorHidden(true)
     }
   }
 
+
+  const defaultFormatter = (input, previousValue, e) => {
+    switch (typeof input) {
+    case 'string':
+      if (pattern && new RegExp(pattern).test(input)) return input
+      else if (pattern) {
+        if (e) validateInput(e)
+        return previousValue
+      }
+      else return input
+
+    default: 
+      return input
+    }
+  }
+
+  const handleChange = (e) => {
+    if (formatter) setValue(prevState => {
+      const { result, valid } = formatter(e.target.value, prevState, e)
+      if (!valid) validateInput(e)
+      return result
+    })
+    else setValue(prevState => defaultFormatter(e.target.value, prevState, e))
+  }
+
   const handleInvalid = (e) => {
     e.preventDefault()
-    e.currentTarget.focus()
-    setErrorHidden(false)
-    setErrorKey(`${id}-error-key-${Math.random()}`)
+    e.target.focus()
+    validateInput(e)
   }
 
   return (
@@ -62,12 +82,11 @@ const Select = ({id, className, name, label, defaultValue, errorMessage, require
         role={
           errorHidden
             ? undefined
-            : announce === 'immediate'
-              ? 'alert'
-              : 'status'
+            : role
         }
+        aria-label={errorPrefix}
         key={errorKey}
-      >{message}</p>
+      >{errorMessage}</p>
     </div>
   )
 }
@@ -79,23 +98,11 @@ Select.propTypes = {
   defaultValue: PropTypes.any.isRequired,
   className: PropTypes.string,
   announce: PropTypes.oneOf(['immediate', 'polite']),
-  errorMessage: PropTypes.string,
+  pattern: PropTypes.string,
+  formatter: PropTypes.func,
+  patternMismatchMessage: PropTypes.string,
   required: PropTypes.bool,
   children: PropTypes.arrayOf(PropTypes.element)
 }
-
-/*
-  <select 
-          id="preferred-language" 
-          name='preffered-language'
-          value={ preferredLanguage }
-          onChange={ ( e ) => setPreferredLanguage( e.target.value ) } 
-          onBlur={validateInput}
-        >
-          <option value="English">English</option>
-          <option value="French">French</option>
-          <option value="German">German</option>
-        </select>
-*/
 
 export default Select
