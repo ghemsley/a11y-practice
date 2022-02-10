@@ -1,5 +1,6 @@
 import React from 'react'
 import Form from './components/Form/Form'
+import './App.css'
 
 function App() {
   return (
@@ -9,11 +10,9 @@ function App() {
       </header>
       <main>
         <section>
-          <div>
-            <h2>Accessible form</h2>
-            <p>Below is a form meant to demonstrate basic accessibility features</p>
-            <Form />
-          </div>
+          <h2>Form component</h2>
+          <p>Below is an example form meant to demonstrate basic accessibility features</p>
+          <Form title='User Info' description='Please provide some information about yourself:'/>
         </section>
       </main>
       <footer>
