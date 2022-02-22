@@ -1,108 +1,188 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import './Select.css'
+import { useDispatch, useSelector } from 'react-redux'
+import Error from '../Error/Error'
+import styles from './Select.module.scss'
 
-const Select = ({id, className, name, label, defaultValue, pattern, formatter, patternMismatchMessage, required, announce, children, ...props}) => {
-  const labelId = `${id}-label`
-  const errorId = `${id}-error`
-  const role = announce === 'immediate' ? 'alert' : 'status'
-  const errorPrefix = `Error on ${label}: `
-  const [ value, setValue ] = useState(defaultValue)
-  const [ errorMessage, setErrorMessage ] = useState('')
-  const [ errorHidden, setErrorHidden ] = useState(true)
-  const [ errorKey, setErrorKey ] = useState(`${id}-error-key`)
-  
-  const validateInput = (e) => {
-    const { validity, willValidate, validationMessage } = e.target
-    if (willValidate && !validity?.valid) {
-      if (patternMismatchMessage && validity.patternMismatch) setErrorMessage(`${patternMismatchMessage}`)
-      else {
-        setErrorMessage(`${validationMessage}`)
+const Select = React.memo(
+  ({
+    id,
+    style,
+    className,
+    name,
+    label,
+    value,
+    withLabel,
+    withErrors,
+    required,
+    children,
+    ...props
+  }) => {
+    let startingValue = ''
+    if (typeof value !== 'undefined') startingValue = value
+    const labelId = `${id}-label`
+    const errorId = `${id}-error`
+    const errorPrefix = `Error on ${label ? label : name}: `
+    const [currentValue, setCurrentValue] = useState(startingValue)
+    const [shouldDispatchValue, setShouldDispatchValue] = useState(true)
+    const [shouldDispatchError, setShouldDispatchError] = useState(false)
+    const [errorPayload, setErrorPayload] = useState(null)
+    const errorVisible = useSelector((state) => state.errors[errorId]?.display)
+    const dispatch = useDispatch()
+
+    useEffect(() => {
+      let runEffect = true
+      if (runEffect && shouldDispatchValue) {
+        dispatch({
+          type: 'UPDATE_VALUE',
+          payload: {
+            [id]: {
+              name,
+              value: currentValue
+            }
+          }
+        })
+        setShouldDispatchValue(false)
       }
-      setErrorHidden(false)
-      setErrorKey(`${id}-error-key-${Math.random()}`)
-    } else {
-      setErrorHidden(true)
-    }
-  }
-
-
-  const defaultFormatter = (input, previousValue, e) => {
-    switch (typeof input) {
-    case 'string':
-      if (pattern && new RegExp(pattern).test(input)) return input
-      else if (pattern) {
-        if (e) validateInput(e)
-        return previousValue
+      return () => {
+        runEffect = false
       }
-      else return input
+    }, [
+      id,
+      name,
+      value,
+      startingValue,
+      currentValue,
+      shouldDispatchValue,
+      dispatch
+    ])
 
-    default: 
-      return input
-    }
-  }
+    useEffect(() => {
+      let runEffect = true
+      if (runEffect && shouldDispatchError && errorPayload)
+        dispatch(errorPayload)
+      else if (runEffect && shouldDispatchError) setShouldDispatchError(false)
+      return () => {
+        runEffect = false
+      }
+    }, [shouldDispatchError, errorPayload, dispatch])
 
-  const handleChange = (e) => {
-    if (formatter) setValue(prevState => {
-      const { result, valid } = formatter(e.target.value, prevState, e)
-      if (!valid) validateInput(e)
-      return result
-    })
-    else setValue(prevState => defaultFormatter(e.target.value, prevState, e))
-  }
-
-  const handleInvalid = (e) => {
-    e.preventDefault()
-    e.target.focus()
-    validateInput(e)
-  }
-
-  return (
-    <div className={`select-container${className ? ' '.concat(className) : ''}`}>
-      <label id={labelId} htmlFor={id}>
-        {`${label}${required ? ' (Required)' : ''}`}
-      </label>
-      <select
-        id={id}
-        name={name}
-        value={value}
-        onChange={ handleChange }
-        onBlur={ validateInput }
-        onInvalid={ handleInvalid }
-        aria-errormessage={errorId}
-        required={required}
-        {...props}
-      >
-        {children}
-      </select>
-      <p
-        id={errorId}
-        className='error'
-        hidden={errorHidden}
-        role={
-          errorHidden
-            ? undefined
-            : role
+    const validateInput = (e) => {
+      const { validity, willValidate, validationMessage } = e.target
+      if (willValidate && !validity?.valid) {
+        let errorMessage = ''
+        if (validationMessage) {
+          errorMessage = validationMessage
         }
-        aria-label={errorPrefix}
-        key={errorKey}
-      >{errorMessage}</p>
-    </div>
-  )
-}
+        setErrorPayload({
+          type: 'UPDATE_ITEM',
+          payload: {
+            id: errorId,
+            item: {
+              message: errorMessage,
+              prefix: errorPrefix,
+              key: `${errorId}-key-${Math.random()}`,
+              display: true
+            }
+          }
+        })
+        setShouldDispatchError(true)
+      } else if (errorVisible) {
+        setErrorPayload({
+          type: 'UPDATE_ITEM',
+          payload: {
+            id: errorId,
+            item: {
+              message: '',
+              prefix: errorPrefix,
+              key: `${errorId}-key`,
+              display: false
+            }
+          }
+        })
+        setShouldDispatchError(true)
+      }
+      return willValidate && validity?.valid
+    }
+
+    const defaultFormatter = (input, previousValue, e) => {
+      switch (typeof input) {
+        case 'string':
+          if (e && validateInput(e)) return input
+          else return previousValue
+
+        default:
+          return input
+      }
+    }
+
+    const handleChange = (e) => {
+      setCurrentValue((prevState) => {
+        const result = defaultFormatter(e.target.value, prevState, e)
+        return result
+      })
+      setShouldDispatchValue(true)
+    }
+
+    const handleInvalid = (e) => {
+      e.preventDefault()
+      e.target.focus()
+      validateInput(e)
+    }
+
+    const conditionalInputProps = useMemo(() => {
+      const object = {}
+      if (required) object.required = true
+      if (typeof currentValue !== 'undefined') object.value = currentValue
+      if (errorVisible) {
+        object['aria-invalid'] = true
+        object['aria-errormessage'] = errorId
+        // object['aria-describedby'] = errorId
+      }
+      return object
+    }, [currentValue, errorId, errorVisible, required])
+
+    return (
+      <div
+        className={`${styles.container}${
+          className ? ' '.concat(className) : ''
+        }`}
+        style={style}>
+        {withLabel && (
+          <label id={labelId} htmlFor={id}>
+            {`${label}${required ? ' (Required)' : ''}`}
+          </label>
+        )}
+        <select
+          id={id}
+          name={name}
+          onChange={handleChange}
+          onBlur={validateInput}
+          onInvalid={handleInvalid}
+          {...conditionalInputProps}
+          {...props}>
+          {children}
+        </select>
+        {withErrors && <Error inputId={id} />}
+      </div>
+    )
+  }
+)
+
+Select.displayName = 'Select'
 
 Select.propTypes = {
   id: PropTypes.string.isRequired,
+  style: PropTypes.object,
+  className: PropTypes.string,
   name: PropTypes.string.isRequired,
   label: PropTypes.string.isRequired,
-  defaultValue: PropTypes.any.isRequired,
-  className: PropTypes.string,
+  value: PropTypes.any,
   announce: PropTypes.oneOf(['immediate', 'polite']),
-  pattern: PropTypes.string,
-  formatter: PropTypes.func,
-  patternMismatchMessage: PropTypes.string,
+  withLabel: PropTypes.bool,
+  withErrors: PropTypes.bool,
   required: PropTypes.bool,
-  children: PropTypes.arrayOf(PropTypes.element)
+  children: PropTypes.arrayOf(PropTypes.object)
 }
 
 export default Select

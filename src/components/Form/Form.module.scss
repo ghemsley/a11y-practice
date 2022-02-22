@@ -1,0 +1,16 @@
+.form {
+  max-width: var(--width-card-medium) !important;
+  width    : 75%;
+
+  fieldset {
+    margin: 0.75rem 0;
+  }
+
+  input[type="submit"] {
+    margin-bottom: 0;
+  }
+}
+
+.title {
+  margin-top: 0;
+}
